@@ -143,7 +143,18 @@ assert_eq!(iter.next(), None);
 여기까지 했다면 뭘하든 쉬워 보일 것이다. <p>
 이제 (3,2)에서 대각선 오른쪽-위 방향으로 향하는 반복자를 만들어보자. <p>
 ``` rust
+let arr = [[0; 4]; 4];
 
+let mut iter = 
+    (0..=3).rev()
+    .map(|i| &arr[i][2]);
+
+assert_eq!(iter.next(), Some(&0));
+assert_eq!(iter.next(), Some(&0));
+assert_eq!(iter.next(), Some(&0));
+assert_eq!(iter.next(), Some(&0));
+
+assert_eq!(iter.next(), None);
 
 
 ```
