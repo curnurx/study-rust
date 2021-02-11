@@ -45,7 +45,7 @@ assert_eq!(it.next(), None);
 assert_eq!(it.next(), None);
 assert_eq!(it.next(), None);
 ```
-위의 assert 매크로들은 panic 없이 정상 작동한다.
+위의 assert 매크로들은 panic 없이 정상 작동한다. <p>
 
 위 예제는 간소화를 위해 4x4 배열을 사용하였고, 불변참조 반복자를 생성하는 iter() 메소드를 사용했다.<p>
 보다시피 next() 메소드로 값을 순회하다 보면 네 번째 원소까지는 배열의 3번째 행의 원소인 0 들이 Option<i32>의 열거값 Some에 싸여있는 형태로 반환되는 것이 확인된다. <p>
@@ -58,12 +58,92 @@ assert_eq!(it.next(), None);
 그럼 이제 반복자의 형식을 알았으므로 본격적으로 임의의 열을 순회하는 반복자를 이 형식에 맞춰서 만들어보자. <p>
 두 가지 방법으로 만들어 볼 것인데, 첫 번째 방법은 새로운 iterator를 구현하는 방법이고, 두 번째 방법은 표준 라이브러리의 Iterator 메소드와 클로져를 적극 활용하는 방법이다. <p>
 <p>
-첫 번째 방법으로 다음과 같이 불변참조 반복자를 구현했다.
-아몰랑 나중에 
+첫 번째 방법으로 새로운 iterator를 구현해보자.<p>
+그러나 할 수 없다. 할 수는 있는데 배열의 수명도 처리해야하고 이러저러한 부분에서 매우 힘들다.<p>
+아래 코드는 배열의 iter()의 내부를 가져온 코드다.<p>
 
+``` rust
+impl<'a, T> Iter<'a, T> {
+    #[inline]
+    pub(super) fn new(slice: &'a [T]) -> Self {
+        let ptr = slice.as_ptr();
+        // SAFETY: Similar to `IterMut::new`.
+        unsafe {
+            assume(!ptr.is_null());
+
+            let end = if mem::size_of::<T>() == 0 {
+                (ptr as *const u8).wrapping_add(slice.len()) as *const T
+            } else {
+                ptr.add(slice.len())
+            };
+
+            Self { ptr: NonNull::new_unchecked(ptr as *mut T), end, _marker: PhantomData }
+        }
+    }
+```
+
+대충봐도 unsafe도 쓰이고 전혀 쉬운방법이 아니다. 그러므로 두번째 방법인 표준라이브러리의 메소드들과 클로져를 적극 활용하기로 하자. <p>
+아래 코드는 작성해 본 2열을 순회하는 반복자다.<p>
+``` rust
+let arr = [[0; 4]; 4];
+let mut col_2_iter = 
+    (0..4)
+    .map(|i| &arr[i][2]);
+
+assert_eq!(col_2_iter.next(), Some(&0));
+assert_eq!(col_2_iter.next(), Some(&0));
+assert_eq!(col_2_iter.next(), Some(&0));
+assert_eq!(col_2_iter.next(), Some(&0));
+
+assert_eq!(col_2_iter.next(), None);
+```
+설명은 생략. <p>
 
 
 ## 2. (0, 0) 원소에서 시작하는 (i, i) 원소를 대각선으로 순회하는 반복자
+대각선의 경우는 참조하는 원소의 위치가 row, col 모두 변경한다는 부분이 다른 점이다. 아래와 같이 만들면 된다. <p>
+
+``` rust
+let arr = [[0; 4]; 4];
+let mut iter =
+    (0..4)
+    .zip(0..4)
+    .map(|(i, j)| &arr[i][j]);
+
+assert_eq!(iter.next(), Some(&0));
+assert_eq!(iter.next(), Some(&0));
+assert_eq!(iter.next(), Some(&0));
+assert_eq!(iter.next(), Some(&0));
+
+assert_eq!(iter.next(), None);
+```
 
 
 ## 3. 임의의 원소에서 시작하는 임의의 방향의 반복자
+
+이것을 구현하기에 앞서 (1, 2)에서 시작하는 아래 방향 반복자를 만들어보자. <p>
+``` rust
+let arr = [[0; 4]; 4];
+
+let mut iter = 
+    (1..4)
+    .map(|i| &arr[i][2]);
+
+assert_eq!(iter.next(), Some(&0));
+assert_eq!(iter.next(), Some(&0));
+assert_eq!(iter.next(), Some(&0));
+
+assert_eq!(iter.next(), None);
+```
+
+아직 역방향을 안했구나!<p>
+(3, 2)에서 위로 올라가는 반복자를 만들어보자.<p>
+
+
+여기까지 했다면 뭘하든 쉬워 보일 것이다. <p>
+이제 (3,2)에서 대각선 오른쪽-위 방향으로 향하는 반복자를 만들어보자. <p>
+``` rust
+
+
+
+```
